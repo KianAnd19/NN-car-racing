@@ -11,8 +11,8 @@ generations = 10
 lamda = 1  # offspring coefficient
 mutation_rate = 0.01
 
-def fitness(individual):
-    game = Game2048.Game2048()
+def fitness(individual, seed=0):
+    game = Game2048.Game2048(seed)
     game.reset(tile1, tile2)
     moves = individual.reshape((int(dim/2), 2))
     print(game, "\n")

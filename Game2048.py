@@ -1,9 +1,10 @@
 import random
 
 class Game2048:
-    def __init__(self) -> None:
+    def __init__(self, seed) -> None:
         self.board = [[0 for _ in range(4)] for _ in range(4)]
         self.score = 0
+        random.seed(seed)
 
     def add_tile(self):
         if self.board_full():
