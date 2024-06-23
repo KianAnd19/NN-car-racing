@@ -15,13 +15,15 @@ env = gym.make('CartPole-v1')
 learning_rate = 0.001
 gamma = 0.99
 epsilon = 0.1
-episodes = 1000
+episodes = 2000
 
 # Initialize the Q-network
 input_size = env.observation_space.shape[0]
 output_size = env.action_space.n
 q_network = QNetwork.QNetwork(input_size, output_size)
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
+
+best = 0
 
 # Training loop
 for episode in range(episodes):
@@ -54,10 +56,15 @@ for episode in range(episodes):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        
         state = next_state
+
+    if (total_reward > best):
+        best = total_reward
+        torch.save(q_network, 'model2.pth')
 
     print(f"Episode {episode + 1}, Total Reward: {total_reward}")
 
-torch.save(q_network, 'model2.pth')
+print(f"Best: {best}")
+# torch.save(q_network, 'model2.pth')
 env.close()
