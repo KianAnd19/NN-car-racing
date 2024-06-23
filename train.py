@@ -23,11 +23,7 @@ if is_ipython:
 plt.ion()
 
 # if GPU is to be used
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else
-    "mps" if torch.backends.mps.is_available() else
-    "cpu"
-)
+device = torch.device("cuda")
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 
@@ -145,12 +141,9 @@ def optimize_model():
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
     
-if torch.cuda.is_available() or torch.backends.mps.is_available():
-    num_episodes = 600
-else:
-    num_episodes = 50
+epochs = 600
 
-for i_episode in range(num_episodes):
+for i_episode in range(epochs):
     # Initialize the environment and get its state
     state, info = env.reset()
     state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -186,4 +179,5 @@ print('Complete')
 plot_durations(show_result=True)
 torch.save(policy_net, 'policy_net_full.pth')
 plt.ioff()
+plt.savefig('training_result.png')
 plt.show()
