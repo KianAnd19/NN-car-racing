@@ -1,10 +1,10 @@
 import gymnasium as gym
 import torch
 import torch.nn.functional as F
-import simple_network as QNetwork
+# import network
 
 device = torch.device("cuda")
-loaded_policy_net = torch.load('model2.pth', map_location=device)
+loaded_policy_net = torch.load('model2_best.pth', map_location=device)
 
 def select_action_run(state):
     with torch.no_grad():
