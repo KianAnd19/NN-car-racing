@@ -26,9 +26,11 @@ class replayBuffer:
 
 
 # Hyperparameters
-learning_rate = 0.001
+learning_rate = 1e-4
 gamma = 0.99
-epsilon = 0.1
+epsilon_start = 1.0
+epsilon_end = 0.01
+epsilon_decay = 0.995
 epochs = 1000
 batch_size = 64
 buffer_size = 10000
@@ -37,11 +39,13 @@ buffer_size = 10000
 input_size = env.observation_space.shape[0]
 output_size = env.action_space.n
 q_network = QNetwork.DQN(input_size, output_size)
+target_network = QNetwork.DQN(input_size, output_size)
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 
 replayBuffer = replayBuffer(buffer_size)
 
 best = 0
+epsilon = epsilon_start
 
 # Training loop
 for epoch in range(epochs):
@@ -87,11 +91,13 @@ for epoch in range(epochs):
             optimizer.step()
         
         state = next_state
-        done = done or truncated
+        # done = done or truncated
 
     if (total_reward >= best):
         best = total_reward
         torch.save(q_network, 'model2_best.pth')
+
+    epsilon = max(epsilon_end, epsilon * epsilon_decay)
 
     print(f"epoch {epoch + 1}, Total Reward: {total_reward}")
 
