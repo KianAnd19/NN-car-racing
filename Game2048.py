@@ -2,10 +2,10 @@ import random
 import math
 
 class Game2048:
-    def __init__(self, max=2048) -> None:
+    def __init__(self, max=2048, seed=0) -> None:
         self.board = [[0 for _ in range(4)] for _ in range(4)]
         self.score = 0
-        self.action_space = ['00', '01', '10', '11']
+        random.seed(seed)
         
     def add_tile(self):
         if self.board_full():
@@ -20,7 +20,6 @@ class Game2048:
         self.score = 0
         self.board[tile1[0]][tile1[1]] = 2
         self.board[tile2[0]][tile2[1]] = 2
-        
 
     def flatten(self):
         return [cell for row in self.board for cell in row]
