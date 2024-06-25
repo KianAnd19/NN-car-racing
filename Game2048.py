@@ -1,11 +1,12 @@
 import random
+import math
 
 class Game2048:
-    def __init__(self, seed) -> None:
+    def __init__(self, max=2048) -> None:
         self.board = [[0 for _ in range(4)] for _ in range(4)]
         self.score = 0
-        random.seed(seed)
-
+        self.action_space = ['00', '01', '10', '11']
+        
     def add_tile(self):
         if self.board_full():
             return
@@ -30,23 +31,8 @@ class Game2048:
     def __str__(self) -> str:
         return '\n'.join([' '.join([str(cell) for cell in row]) for row in self.board])
 
-    def move(self, direction):
-        if direction == '00':
-            self.move_up()
-        elif direction == '01':
-            self.move_down()
-        elif direction == '10':
-            self.move_left()
-        elif direction == '11':
-            self.move_right()
-        else:
-            raise ValueError('Invalid direction')
-        
-        
-        if self.board_full() and self.is_game_over():
-            return -1
-
     def move_up(self):
+        initial_state = [row[:] for row in self.board]
         for col in range(4):
             for row in range(1, 4):
                 if self.board[row][col] != 0:
@@ -57,11 +43,11 @@ class Game2048:
                         current_row -= 1
                     if current_row > 0 and self.board[current_row - 1][col] == self.board[current_row][col]:
                         self.board[current_row - 1][col] *= 2
-                        self.score += self.board[current_row - 1][col]
                         self.board[current_row][col] = 0
-        self.add_tile()
+        return self.board != initial_state
 
     def move_down(self):
+        initial_state = [row[:] for row in self.board]
         for col in range(4):
             for row in range(2, -1, -1):
                 if self.board[row][col] != 0:
@@ -72,11 +58,11 @@ class Game2048:
                         current_row += 1
                     if current_row < 3 and self.board[current_row + 1][col] == self.board[current_row][col]:
                         self.board[current_row + 1][col] *= 2
-                        self.score += self.board[current_row + 1][col]
                         self.board[current_row][col] = 0
-        self.add_tile()
+        return self.board != initial_state
 
     def move_left(self):
+        initial_state = [row[:] for row in self.board]
         for row in range(4):
             for col in range(1, 4):
                 if self.board[row][col] != 0:
@@ -87,11 +73,11 @@ class Game2048:
                         current_col -= 1
                     if current_col > 0 and self.board[row][current_col - 1] == self.board[row][current_col]:
                         self.board[row][current_col - 1] *= 2
-                        self.score += self.board[row][current_col - 1]
                         self.board[row][current_col] = 0
-        self.add_tile()
+        return self.board != initial_state
 
     def move_right(self):
+        initial_state = [row[:] for row in self.board]
         for row in range(4):
             for col in range(2, -1, -1):
                 if self.board[row][col] != 0:
@@ -102,10 +88,9 @@ class Game2048:
                         current_col += 1
                     if current_col < 3 and self.board[row][current_col + 1] == self.board[row][current_col]:
                         self.board[row][current_col + 1] *= 2
-                        self.score += self.board[row][current_col + 1]
                         self.board[row][current_col] = 0
-        self.add_tile()
-        
+        return self.board != initial_state
+    
     def is_game_over(self):
         if not self.board_full():
             return False
@@ -119,11 +104,50 @@ class Game2048:
 
         return True
     
-    def get_score(self):
-        # calculate score
-        self.score = 0
+    def get_highest_tile(self):
+        highest = 0
         for row in self.board:
             for cell in row:
-                if cell > self.score:
-                    self.score = cell
-        return self.score
+                if cell > highest:
+                    highest = cell
+        return highest
+    
+    def get_total_score(self):
+        return sum([cell for row in self.board for cell in row])
+    
+    def get_empty_tiles(self):
+        empty = 0
+        for row in self.board:
+            for cell in row:
+                if cell == 0:
+                    empty += 1
+        return empty
+    
+    def get_score(self, move_changed_board=True):
+        highest_tile = self.get_highest_tile()
+        empty_tiles = self.get_empty_tiles()
+        total_sum = self.get_total_score()
+        
+        # Calculate smoothness
+        smoothness = 0
+        for i in range(4):
+            for j in range(4):
+                if j < 3:
+                    smoothness -= abs(self.board[i][j] - self.board[i][j+1])
+                if i < 3:
+                    smoothness -= abs(self.board[i][j] - self.board[i+1][j])
+        
+        # Weight factors (you can adjust these)
+        w1, w2, w3, w4, w5 = 1.0, 2.0, 1.0, 0.1, -100.0
+        
+        # Combine factors
+        score = (w1 * math.log2(highest_tile) if highest_tile > 0 else 0) + \
+                (w2 * empty_tiles) + \
+                (w3 * math.log2(total_sum) if total_sum > 0 else 0) + \
+                (w4 * smoothness)
+        
+        # Apply penalty for impossible moves
+        if not move_changed_board:
+            score += w5
+        
+        return score

@@ -1,40 +1,55 @@
-import gymnasium as gym
+import sys
 import torch
-import torch.nn.functional as F
+import numpy as np
+from Game2048 import Game2048
+from env import Game2048Env
 
-loaded_policy_net = torch.load('model.pth')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load the trained model
+loaded_policy_net = torch.load('model2_best.pth', map_location=device)
+if len(sys.argv) > 1:
+    if sys.argv[1] == '1':
+        loaded_policy_net = torch.load('model2_last.pth', map_location=device)
 
 def select_action_run(state):
     with torch.no_grad():
         return loaded_policy_net(state).max(1).indices.view(1, 1)
 
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else
-    "mps" if torch.backends.mps.is_available() else
-    "cpu"
-)
-
 # Create a new environment for visualization
-env = gym.make("CartPole-v1", render_mode="human")
-state, info = env.reset()
+env = Game2048Env()
+
+state = env.reset()
 state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
 done = False
-
 total_reward = 0
 steps = 0
+stuck_counter = 0
 
-for i in range(10000):
+while not done:
     action = select_action_run(state)
-    observation, reward, terminated, truncated, _ = env.step(action.item())
+    observation, reward, done = env.step(action.item())
     reward = torch.tensor([reward], device=device)
-    done = terminated or truncated
-    
     next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
-    state = next_state
     
+    env.render()  # This will print the current state of the board
+    print(f"Step: {steps}, Action: {action.item()}, Reward: {reward.item()}")
+    
+    state = next_state
     total_reward += reward.item()
     steps += 1
 
-env.close()
+    if steps % 100 == 0:
+        print(f"Step {steps}, Current max tile: {env.game.get_highest_tile()}, Current score: {env.game.get_score()}")
 
-print(f"Model performance: Total steps: {steps}, Total reward: {total_reward}")
+print(f"Game Over! Total steps: {steps}, Max tile: {env.game.get_highest_tile()}, Total score: {env.game.get_score()}")
+
+# Print model's action preferences for the final state
+final_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+with torch.no_grad():
+    action_values = loaded_policy_net(final_state)
+print("Final state action values:")
+print("Up:", action_values[0][0].item())
+print("Down:", action_values[0][1].item())
+print("Left:", action_values[0][2].item())
+print("Right:", action_values[0][3].item())
