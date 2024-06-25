@@ -3,14 +3,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import network as QNetwork
+from network import cnn
 from collections import deque
 import random
 import matplotlib.pyplot as plt
 import matplotlib
+import cv2
 
 # Create the CarRacing environment
-env = gym.make('CarRacing-v2')
+env = gym.make('CarRacing-v2', continuous=False)
+
+device = torch.device("cuda")
 
 class ReplayBuffer:
     def __init__(self, capacity):
@@ -29,20 +32,22 @@ class ReplayBuffer:
     
 def preprocess_state(state):
     if isinstance(state, torch.Tensor):
-        if state.shape == (3, 96, 96):
+        if state.shape == (1, 96, 96):
             return state  # Already preprocessed
         state = state.numpy()
     
     if state.shape == (96, 96, 3):
+        # Convert to grayscale
+        state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
         # Normalize pixel values
         state = state / 255.0
-        # Transpose from (height, width, channels) to (channels, height, width)
-        state = np.transpose(state, (2, 0, 1))
-    elif state.shape != (3, 96, 96):
+        # Add channel dimension
+        state = np.expand_dims(state, axis=0)
+    elif state.shape != (1, 96, 96):
         raise ValueError(f"Unexpected state shape: {state.shape}")
     
     # Convert to torch tensor
-    return torch.FloatTensor(state)
+    return torch.FloatTensor(state).to(device)
 
 # Hyperparameters
 learning_rate = 1e-4
@@ -50,16 +55,15 @@ gamma = 0.99
 epsilon_start = 1.0
 epsilon_end = 0.01
 epsilon_decay = 0.995
-epochs = 1000
+epochs = 600
 batch_size = 64
 buffer_size = 10000
 target_update = 10
 
 # Initialize the Q-network
-output_size = env.action_space.shape[0]
-input_channels = env.observation_space.shape[2]  # Should be 3 for RGB
-q_network = QNetwork.DQN(input_channels=input_channels, action_dim=output_size)
-target_network = QNetwork.DQN(input_channels=input_channels, action_dim=output_size)
+output_size = env.action_space.n
+q_network = cnn().to(device)
+target_network = cnn().to(device)
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 
@@ -100,11 +104,11 @@ def plot_durations(show_result=False):
         else:
             display.display(plt.gcf())
 
-
+best = -np.inf
 # Training loop
 for epoch in range(epochs):
     state = env.reset()[0]
-    state = preprocess_state(state)
+    state = preprocess_state(state).to(device)
     done = False
     total_reward = 0
 
@@ -113,10 +117,9 @@ for epoch in range(epochs):
             action = env.action_space.sample()
         else:
             with torch.no_grad():
-                action = q_network(state.unsqueeze(0)).squeeze().numpy()
-                # Clip the action to be within the valid range
-                action = np.clip(action, -1, 1)
-        
+                q_values = q_network(state.unsqueeze(0)).squeeze()
+                action = q_values.argmax().item()        
+                        
         next_state, reward, done, truncated, _ = env.step(action)
         total_reward += reward
         
@@ -126,22 +129,16 @@ for epoch in range(epochs):
             batch = replay_buffer.sample(batch_size)
             states, actions, rewards, next_states, dones = zip(*batch)
             
-            states = torch.stack(states)
-            actions = torch.FloatTensor(np.array(actions))
-            rewards = torch.FloatTensor(rewards).unsqueeze(1)
-            next_states = torch.stack(next_states)
-            dones = torch.FloatTensor(dones).unsqueeze(1)
-
-            current_q_values = q_network(states)
-            next_q_values = target_network(next_states)
+            states = torch.stack(states).to(device)
+            actions = torch.LongTensor(actions).to(device)
+            rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
+            next_states = torch.stack(next_states).to(device)
+            dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
             
-            # Calculate the target Q-values
-            target_q_values = current_q_values.clone()
-            for i in range(batch_size):
-                if dones[i]:
-                    target_q_values[i] = rewards[i]
-                else:
-                    target_q_values[i] = rewards[i] + gamma * next_q_values[i].max()
+            current_q_values = q_network(states).gather(1, actions.unsqueeze(1))
+            next_q_values = target_network(next_states).max(1)[0].unsqueeze(1)
+            
+            target_q_values = rewards + (1 - dones) * gamma * next_q_values
             
             loss = nn.MSELoss()(current_q_values, target_q_values.detach())
 
@@ -153,15 +150,24 @@ for epoch in range(epochs):
         done = done or truncated
         
         if done:
-            print(f"Epoch {epoch + 1}, Total Reward: {total_reward}")
+            episode_durations.append(total_reward)
+            plot_durations()
+            print(f"Epoch {epoch + 1}, Total Reward: {total_reward}, Epsilon: {epsilon}, Best: {best}")
+            
+            if best < total_reward:
+                best = total_reward
+                torch.save(q_network.state_dict(), 'model_best.pth')
+            
+            torch.save(q_network.state_dict(), 'model_last.pth')
             break
-    
+        
     if epoch % target_update == 0:
         target_network.load_state_dict(q_network.state_dict())
-
+        
+    plot_durations()
     epsilon = max(epsilon_end, epsilon * epsilon_decay)
 
-torch.save(q_network.state_dict(), 'model_continuous.pth')
+torch.save(q_network.state_dict(), 'model_last.pth')
 env.close()
 
 # Plot final results
