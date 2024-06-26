@@ -64,7 +64,7 @@ target_update = 10
 output_size = env.action_space.n
 q_network = cnn().to(device)
 target_network = cnn().to(device)
-target_network.load_state_dict(torch.load('model.pth', map_location=device))  
+target_network.load_state_dict(torch.load('model1.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 
@@ -115,10 +115,7 @@ for epoch in range(epochs):
 
     while not done:
         if np.random.random() < epsilon:
-            if np.random.random() < 0.5:  # 50% chance of forward action during exploration
-                action = 3  # Index of accelerate action
-            else:
-                action = env.action_space.sample()  # Random action
+            action = env.action_space.sample()  # Random action
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
