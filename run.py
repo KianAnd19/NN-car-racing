@@ -21,6 +21,8 @@ model.load_state_dict(torch.load('model_best.pth', map_location=device))
 if len(sys.argv) > 1:
     if sys.argv[1] == "1":
         model.load_state_dict(torch.load('model_last.pth', map_location=device))
+    elif sys.argv[1] == "2":
+        model.load_state_dict(torch.load('model1.pth', map_location=device))
 model.eval()
 
 def preprocess_state(state):

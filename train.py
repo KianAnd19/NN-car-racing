@@ -52,7 +52,7 @@ def preprocess_state(state):
 # Hyperparameters
 learning_rate = 1e-4
 gamma = 0.99
-epsilon_start = 1.0
+epsilon_start = 0.5
 epsilon_end = 0.01
 epsilon_decay = 0.995
 epochs = 600
@@ -115,7 +115,10 @@ for epoch in range(epochs):
 
     while not done:
         if np.random.random() < epsilon:
-            action = env.action_space.sample()  # Random action
+            if np.random.random() < 0.5:
+                action = 3
+            else:
+                action = env.action_space.sample()  # Random action
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
@@ -123,8 +126,12 @@ for epoch in range(epochs):
                         
         next_state, reward, done, truncated, _ = env.step(action)
         
-        if action == 3:
-            reward += 0.05  # Reward for accelerating
+        if action == 0:
+            reward -= 0.05  # Penalty for doing nothing
+        elif action == 4:
+            reward -= 0.1  # Penalty for braking
+        elif action == 3:
+            reward += 0.1  # Reward for accelerating
         
         total_reward += reward
         
