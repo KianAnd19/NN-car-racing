@@ -23,6 +23,8 @@ if len(sys.argv) > 1:
         model.load_state_dict(torch.load('model_last.pth', map_location=device))
     elif sys.argv[1] == "2":
         model.load_state_dict(torch.load('model1.pth', map_location=device))
+    elif sys.argv[1] == "3":
+        model.load_state_dict(torch.load('model2.pth', map_location=device))
 model.eval()
 
 def preprocess_state(state):

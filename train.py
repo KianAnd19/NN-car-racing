@@ -52,10 +52,10 @@ def preprocess_state(state):
 # Hyperparameters
 learning_rate = 1e-4
 gamma = 0.99
-epsilon_start = 0.5
+epsilon_start = 0.2
 epsilon_end = 0.01
-epsilon_decay = 0.995
-epochs = 600
+epsilon_decay = 0.997
+epochs = 20000
 batch_size = 64
 buffer_size = 10000
 target_update = 10
@@ -64,7 +64,7 @@ target_update = 10
 output_size = env.action_space.n
 q_network = cnn().to(device)
 target_network = cnn().to(device)
-target_network.load_state_dict(torch.load('model1.pth', map_location=device))  
+target_network.load_state_dict(torch.load('model3.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 
@@ -129,7 +129,7 @@ for epoch in range(epochs):
         if action == 0:
             reward -= 0.05  # Penalty for doing nothing
         elif action == 4:
-            reward -= 0.1  # Penalty for braking
+            reward -= 0.15  # Penalty for braking
         elif action == 3:
             reward += 0.1  # Reward for accelerating
         
