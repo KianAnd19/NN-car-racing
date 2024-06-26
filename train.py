@@ -64,6 +64,7 @@ target_update = 10
 output_size = env.action_space.n
 q_network = cnn().to(device)
 target_network = cnn().to(device)
+target_network.load_state_dict(torch.load('model.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 
@@ -90,7 +91,7 @@ def plot_durations(show_result=False):
         plt.clf()
         plt.title('Training...')
     plt.xlabel('Episode')
-    plt.ylabel('Duration')
+    plt.ylabel('Reward')
     plt.plot(durations_t.numpy())
     if len(durations_t) >= 100:
         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
@@ -114,13 +115,20 @@ for epoch in range(epochs):
 
     while not done:
         if np.random.random() < epsilon:
-            action = env.action_space.sample()
+            if np.random.random() < 0.5:  # 50% chance of forward action during exploration
+                action = 3  # Index of accelerate action
+            else:
+                action = env.action_space.sample()  # Random action
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
                 action = q_values.argmax().item()        
                         
         next_state, reward, done, truncated, _ = env.step(action)
+        
+        if action == 3:
+            reward += 0.05  # Reward for accelerating
+        
         total_reward += reward
         
         replay_buffer.push(state, action, reward, next_state, done)
@@ -175,6 +183,6 @@ plt.figure(2)
 plt.title('Training Results')
 plt.xlabel('Episode')
 plt.ylabel('Total Reward')
-plt.plot(total_rewards)
+plt.plot(episode_durations)
 plt.savefig('training_result.png')
 plt.show()
