@@ -160,6 +160,8 @@ The best and last models of the last training run were compared, while the best 
 
 ## Acknowledgments
 
+- https://towardsdatascience.com/applying-a-deep-q-network-for-openais-car-racing-game-a642daf58fc9 (For the convolutional neural net architecture)
+- https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html (For a general understanding of reinforcement learning and also the active plot of the rewards during training)
 
 ## Future Improvements
 
