@@ -64,7 +64,7 @@ target_update = 10
 output_size = env.action_space.n
 q_network = cnn().to(device)
 target_network = cnn().to(device)
-target_network.load_state_dict(torch.load('model3.pth', map_location=device))  
+# target_network.load_state_dict(torch.load('runs/model3.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 

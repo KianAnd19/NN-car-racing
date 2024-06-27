@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import cv2
 from network import cnn
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -17,7 +17,7 @@ output_size = env.action_space.n
 model = cnn().to(device)
 
 # Load the saved state dictionary
-model.load_state_dict(torch.load('model_best.pth', map_location=device))
+model.load_state_dict(torch.load('model_last.pth', map_location=device))
 
 def preprocess_state(state):
     if isinstance(state, np.ndarray) and state.shape == (96, 96, 3):
@@ -43,7 +43,7 @@ def select_action_run(state):
         return action
 
 results = []
-for trial in range(1000):
+for trial in range(100):
     print(f"Trial {trial + 1}")
     try:
         # Run the environment
@@ -53,13 +53,10 @@ for trial in range(1000):
 
         for step in range(1000):  # Run for 1000 steps
             action = select_action_run(state)
-            print(f"Step {step}, Action: {action}")
             next_state, reward, terminated, truncated, _ = env.step(action)
             total_reward += reward
             state = preprocess_state(next_state)
-            print(f"Reward: {reward}, Total Reward: {total_reward}, Terminated: {terminated}, Truncated: {truncated}")
             if terminated or truncated:
-                print("Episode finished")
                 break
             
         results.append(total_reward)
@@ -75,8 +72,9 @@ print(f"Minimum reward: {np.min(results)}")
 print(f"Maximum reward: {np.max(results)}")
 
 #save plot of results
-plt.plot(results)
-plt.xlabel('Trial')
+plt.title('Training Results')
+plt.xlabel('Episode')
 plt.ylabel('Total Reward')
-plt.title('Total Reward per Trial')
-plt.savefig('results.png')
+plt.plot(results)
+plt.savefig('result.png')
+plt.show()

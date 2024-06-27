@@ -1,0 +1,11 @@
+Best:
+Average reward: 532.5839871963057
+Standard deviation: 324.5872739162172
+Minimum reward: -10.475438596489752
+Maximum reward: 929.6999999999872
+
+Last:
+Average reward: 723.7228366586651
+Standard deviation: 266.8160548923872
+Minimum reward: -65.40880503144722
+Maximum reward: 932.2999999999965
