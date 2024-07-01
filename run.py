@@ -9,27 +9,32 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Create the environment
-env = gym.make('CarRacing-v2', render_mode="human", continuous=False)
+env = gym.make('CarRacing-v2', render_mode="human")
 
 # Initialize the model
 input_channels = 1  # Grayscale input
-output_size = env.action_space.n
 model = cnn().to(device)
 
 # Load the saved state dictionary
-model.load_state_dict(torch.load('runs/model_best.pth', map_location=device))    
+model.load_state_dict(torch.load('model_best.pth', map_location=device))
+
 if len(sys.argv) > 1:
-    if sys.argv[1] == "1":
-        model.load_state_dict(torch.load('runs/model.pth', map_location=device))
-    elif sys.argv[1] == "2":
-        model.load_state_dict(torch.load('runs/model1.pth', map_location=device))
-    elif sys.argv[1] == "3":
-        model.load_state_dict(torch.load('runs/model2.pth', map_location=device))
-    elif sys.argv[1] == "4":
-        model.load_state_dict(torch.load('runs/model3.pth', map_location=device))
-    elif sys.argv[1] == "5":
-        model.load_state_dict(torch.load('runs/model4.pth', map_location=device))
-model.eval()
+    if sys.argv[1] == '1':
+        model.load_state_dict(torch.load('model_last.pth', map_location=device))
+
+    
+# if len(sys.argv) > 1:
+#     if sys.argv[1] == "1":
+#         model.load_state_dict(torch.load('runs/model.pth', map_location=device))
+#     elif sys.argv[1] == "2":
+#         model.load_state_dict(torch.load('runs/model1.pth', map_location=device))
+#     elif sys.argv[1] == "3":
+#         model.load_state_dict(torch.load('runs/model2.pth', map_location=device))
+#     elif sys.argv[1] == "4":
+#         model.load_state_dict(torch.load('runs/model3.pth', map_location=device))
+#     elif sys.argv[1] == "5":
+#         model.load_state_dict(torch.load('runs/model4.pth', map_location=device))
+# model.eval()
 
 def preprocess_state(state):
     if isinstance(state, np.ndarray) and state.shape == (96, 96, 3):
@@ -50,9 +55,8 @@ def preprocess_state(state):
 
 def select_action_run(state):
     with torch.no_grad():
-        q_values = model(state.unsqueeze(0)).squeeze()
-        action = q_values.argmax().item()
-        return action
+        action = model(state.unsqueeze(0)).squeeze()
+        return action.cpu().numpy()
 
 try:
     # Run the environment
@@ -62,6 +66,7 @@ try:
 
     for step in range(1000):  # Run for 1000 steps
         action = select_action_run(state)
+        # action = [0, 0, -1]
         print(f"Step {step}, Action: {action}")
         next_state, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward

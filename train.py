@@ -9,9 +9,10 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib
 import cv2
+from torch.optim.lr_scheduler import StepLR
 
 # Create the CarRacing environment
-env = gym.make('CarRacing-v2', continuous=False)
+env = gym.make('CarRacing-v2')
 
 device = torch.device("cuda")
 
@@ -50,23 +51,23 @@ def preprocess_state(state):
     return torch.FloatTensor(state).to(device)
 
 # Hyperparameters
-learning_rate = 1e-4
+learning_rate = 1e-3
 gamma = 0.99
-epsilon_start = 0.2
+epsilon_start = 0.5
 epsilon_end = 0.01
 epsilon_decay = 0.997
-epochs = 20000
+epochs = 1000
 batch_size = 64
 buffer_size = 10000
 target_update = 10
 
 # Initialize the Q-network
-output_size = env.action_space.n
 q_network = cnn().to(device)
 target_network = cnn().to(device)
 # target_network.load_state_dict(torch.load('runs/model3.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
+scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
 
 replay_buffer = ReplayBuffer(buffer_size)
 
@@ -115,23 +116,16 @@ for epoch in range(epochs):
 
     while not done:
         if np.random.random() < epsilon:
-            if np.random.random() < 0.5:
-                action = 3
-            else:
-                action = env.action_space.sample()  # Random action
+            action = env.action_space.sample()
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
-                action = q_values.argmax().item()        
-                        
+                action = q_values.cpu().numpy()
+        
         next_state, reward, done, truncated, _ = env.step(action)
         
-        if action == 0:
-            reward -= 0.05  # Penalty for doing nothing
-        elif action == 4:
-            reward -= 0.15  # Penalty for braking
-        elif action == 3:
-            reward += 0.1  # Reward for accelerating
+        reward += action[1] * 0.1  # Acceleration reward
+        reward -= action[2] * 0.05  # Brake penalty
         
         total_reward += reward
         
@@ -142,21 +136,26 @@ for epoch in range(epochs):
             states, actions, rewards, next_states, dones = zip(*batch)
             
             states = torch.stack(states).to(device)
-            actions = torch.LongTensor(actions).to(device)
+            actions = torch.FloatTensor(np.array(actions)).to(device)
             rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
             next_states = torch.stack(next_states).to(device)
             dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
             
-            current_q_values = q_network(states).gather(1, actions.unsqueeze(1))
-            next_q_values = target_network(next_states).max(1)[0].unsqueeze(1)
+            current_q_values = q_network(states)
             
+            # Convert actions to indices or use a different approach for continuous actions
+            # Here we assume actions are already continuous and not indices
+            
+            next_q_values = target_network(next_states)
             target_q_values = rewards + (1 - dones) * gamma * next_q_values
             
-            loss = nn.MSELoss()(current_q_values, target_q_values.detach())
+            # Compute the loss between the current Q-values and target Q-values
+            loss = nn.MSELoss()(current_q_values, target_q_values)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
         
         state = preprocess_state(next_state)
         done = done or truncated
