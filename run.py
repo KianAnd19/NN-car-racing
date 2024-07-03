@@ -66,7 +66,6 @@ try:
 
     for step in range(1000):  # Run for 1000 steps
         action = select_action_run(state)
-        # action = [0, 0, -1]
         print(f"Step {step}, Action: {action}")
         next_state, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward

@@ -53,10 +53,10 @@ def preprocess_state(state):
 # Hyperparameters
 learning_rate = 1e-3
 gamma = 0.99
-epsilon_start = 0.5
+epsilon_start = 1
 epsilon_end = 0.01
-epsilon_decay = 0.997
-epochs = 1000
+epsilon_decay = 0.99
+epochs = 600
 batch_size = 64
 buffer_size = 10000
 target_update = 10
@@ -67,7 +67,7 @@ target_network = cnn().to(device)
 # target_network.load_state_dict(torch.load('runs/model3.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
-scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
+# scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
 
 replay_buffer = ReplayBuffer(buffer_size)
 
@@ -116,17 +116,23 @@ for epoch in range(epochs):
 
     while not done:
         if np.random.random() < epsilon:
-            action = env.action_space.sample()
+            if random.random() > 0.5:
+                action = np.array([0, 1, 0]) # this is potentially the problem, not sure why though
+            else:
+                action = env.action_space.sample()
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
                 action = q_values.cpu().numpy()
         
+        
         next_state, reward, done, truncated, _ = env.step(action)
+        # action[2] = action[2] * 0.5 # scale the braking for future learning
         
         reward += action[1] * 0.1  # Acceleration reward
-        reward -= action[2] * 0.05  # Brake penalty
-        
+        reward -= action[2] * 0.2  # Brake penalty
+        reward -= 0.1 * np.abs(action[0])  # Small penalty for steering to encourage straight driving
+                
         total_reward += reward
         
         replay_buffer.push(state, action, reward, next_state, done)
@@ -141,21 +147,19 @@ for epoch in range(epochs):
             next_states = torch.stack(next_states).to(device)
             dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
             
-            current_q_values = q_network(states)
             
-            # Convert actions to indices or use a different approach for continuous actions
-            # Here we assume actions are already continuous and not indices
-            
-            next_q_values = target_network(next_states)
+            current_q_values = q_network(states).gather(1, actions.argmax(dim=1).unsqueeze(1))
+            next_q_values = target_network(next_states).max(1)[0].unsqueeze(1)
             target_q_values = rewards + (1 - dones) * gamma * next_q_values
-            
+
             # Compute the loss between the current Q-values and target Q-values
             loss = nn.MSELoss()(current_q_values, target_q_values)
 
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(q_network.parameters(), max_norm=1.0)
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
         
         state = preprocess_state(next_state)
         done = done or truncated
