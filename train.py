@@ -51,9 +51,9 @@ def preprocess_state(state):
     return torch.FloatTensor(state).to(device)
 
 # Hyperparameters
-learning_rate = 1e-3
+learning_rate = 1e-4
 gamma = 0.99
-epsilon_start = 1
+epsilon_start = 1.0
 epsilon_end = 0.01
 epsilon_decay = 0.99
 epochs = 600
@@ -64,7 +64,7 @@ target_update = 10
 # Initialize the Q-network
 q_network = cnn().to(device)
 target_network = cnn().to(device)
-# target_network.load_state_dict(torch.load('runs/model3.pth', map_location=device))  
+q_network.load_state_dict(torch.load('model_temp.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 # scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
@@ -117,7 +117,7 @@ for epoch in range(epochs):
     while not done:
         if np.random.random() < epsilon:
             if random.random() > 0.5:
-                action = np.array([0, 1, 0]) # this is potentially the problem, not sure why though
+                action = np.array([0, 1, 0])
             else:
                 action = env.action_space.sample()
         else:
@@ -130,8 +130,8 @@ for epoch in range(epochs):
         # action[2] = action[2] * 0.5 # scale the braking for future learning
         
         reward += action[1] * 0.1  # Acceleration reward
-        reward -= action[2] * 0.2  # Brake penalty
-        reward -= 0.1 * np.abs(action[0])  # Small penalty for steering to encourage straight driving
+        # reward -= action[2] * 0.2  # Brake penalty
+        # reward -= 0.1 * np.abs(action[0])  # Small penalty for steering to encourage straight driving
                 
         total_reward += reward
         

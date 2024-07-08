@@ -30,9 +30,9 @@ class cnn(nn.Module):
         x = self.pool(x)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = self.fc3(x)
         
         x[:, 0] = torch.tanh(x[:, 0])  # Scale first value to [-1, 1] for steering
