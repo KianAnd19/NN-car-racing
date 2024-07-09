@@ -12,7 +12,7 @@ import cv2
 from torch.optim.lr_scheduler import StepLR
 
 # Create the CarRacing environment
-env = gym.make('CarRacing-v2')
+env = gym.make('CarRacing-v2', continuous=False)
 
 device = torch.device("cuda")
 
@@ -64,7 +64,7 @@ target_update = 10
 # Initialize the Q-network
 q_network = cnn().to(device)
 target_network = cnn().to(device)
-q_network.load_state_dict(torch.load('model_temp.pth', map_location=device))  
+# q_network.load_state_dict(torch.load('model_temp.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
 # scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
@@ -117,22 +117,17 @@ for epoch in range(epochs):
     while not done:
         if np.random.random() < epsilon:
             if random.random() > 0.5:
-                action = np.array([0, 1, 0])
+                action = 3
             else:
                 action = env.action_space.sample()
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
-                action = q_values.cpu().numpy()
+                action = np.argmax(q_values.cpu().numpy())
         
         
         next_state, reward, done, truncated, _ = env.step(action)
-        # action[2] = action[2] * 0.5 # scale the braking for future learning
         
-        reward += action[1] * 0.1  # Acceleration reward
-        # reward -= action[2] * 0.2  # Brake penalty
-        # reward -= 0.1 * np.abs(action[0])  # Small penalty for steering to encourage straight driving
-                
         total_reward += reward
         
         replay_buffer.push(state, action, reward, next_state, done)
@@ -140,15 +135,15 @@ for epoch in range(epochs):
         if len(replay_buffer) >= batch_size:
             batch = replay_buffer.sample(batch_size)
             states, actions, rewards, next_states, dones = zip(*batch)
-            
+
             states = torch.stack(states).to(device)
-            actions = torch.FloatTensor(np.array(actions)).to(device)
+            actions = torch.LongTensor(actions).to(device)
             rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
             next_states = torch.stack(next_states).to(device)
             dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
+
             
-            
-            current_q_values = q_network(states).gather(1, actions.argmax(dim=1).unsqueeze(1))
+            current_q_values = q_network(states).gather(1, actions.unsqueeze(1))
             next_q_values = target_network(next_states).max(1)[0].unsqueeze(1)
             target_q_values = rewards + (1 - dones) * gamma * next_q_values
 

@@ -9,7 +9,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Create the environment
-env = gym.make('CarRacing-v2', render_mode="human")
+env = gym.make('CarRacing-v2', render_mode="human", continuous=False)
 
 # Initialize the model
 input_channels = 1  # Grayscale input
@@ -18,23 +18,25 @@ model = cnn().to(device)
 # Load the saved state dictionary
 model.load_state_dict(torch.load('model_best.pth', map_location=device))
 
-if len(sys.argv) > 1:
-    if sys.argv[1] == '1':
-        model.load_state_dict(torch.load('model_last.pth', map_location=device))
+# if len(sys.argv) > 1:
+#     if sys.argv[1] == '1':
+#         model.load_state_dict(torch.load('model_last.pth', map_location=device))
 
     
-# if len(sys.argv) > 1:
-#     if sys.argv[1] == "1":
-#         model.load_state_dict(torch.load('runs/model.pth', map_location=device))
-#     elif sys.argv[1] == "2":
-#         model.load_state_dict(torch.load('runs/model1.pth', map_location=device))
-#     elif sys.argv[1] == "3":
-#         model.load_state_dict(torch.load('runs/model2.pth', map_location=device))
-#     elif sys.argv[1] == "4":
-#         model.load_state_dict(torch.load('runs/model3.pth', map_location=device))
-#     elif sys.argv[1] == "5":
-#         model.load_state_dict(torch.load('runs/model4.pth', map_location=device))
-# model.eval()
+if len(sys.argv) > 1:
+    if sys.argv[1] == "0":
+        model.load_state_dict(torch.load('model_last.pth', map_location=device))
+    elif sys.argv[1] == "1":
+        model.load_state_dict(torch.load('runs/model.pth', map_location=device))
+    elif sys.argv[1] == "2":
+        model.load_state_dict(torch.load('runs/model1.pth', map_location=device))
+    elif sys.argv[1] == "3":
+        model.load_state_dict(torch.load('runs/model2.pth', map_location=device))
+    elif sys.argv[1] == "4":
+        model.load_state_dict(torch.load('runs/model3.pth', map_location=device))
+    elif sys.argv[1] == "5":
+        model.load_state_dict(torch.load('runs/model4.pth', map_location=device))
+model.eval()
 
 def preprocess_state(state):
     if isinstance(state, np.ndarray) and state.shape == (96, 96, 3):
@@ -66,6 +68,7 @@ try:
 
     for step in range(1000):  # Run for 1000 steps
         action = select_action_run(state)
+        action = np.argmax(action)
         print(f"Step {step}, Action: {action}")
         next_state, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
