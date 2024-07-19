@@ -53,7 +53,7 @@ def preprocess_state(state):
 # Hyperparameters
 learning_rate = 1e-4
 gamma = 0.99
-epsilon_start = 1.0
+epsilon_start = 1
 epsilon_end = 0.01
 epsilon_decay = 0.99
 epochs = 600
@@ -61,13 +61,13 @@ batch_size = 64
 buffer_size = 10000
 target_update = 10
 
+
 # Initialize the Q-network
 q_network = cnn().to(device)
+q_network.load_state_dict(torch.load('runs/model4.pth', map_location=device))  
 target_network = cnn().to(device)
-# q_network.load_state_dict(torch.load('model_temp.pth', map_location=device))  
 target_network.load_state_dict(q_network.state_dict())
 optimizer = optim.Adam(q_network.parameters(), lr=learning_rate)
-# scheduler = StepLR(optimizer, step_size=100, gamma=0.9)
 
 replay_buffer = ReplayBuffer(buffer_size)
 
@@ -123,13 +123,12 @@ for epoch in range(epochs):
         else:
             with torch.no_grad():
                 q_values = q_network(state.unsqueeze(0)).squeeze()
-                action = np.argmax(q_values.cpu().numpy())
-        
+                action = q_values.cpu().numpy().argmax()
+
         
         next_state, reward, done, truncated, _ = env.step(action)
-        
+                    
         total_reward += reward
-        
         replay_buffer.push(state, action, reward, next_state, done)
         
         if len(replay_buffer) >= batch_size:
@@ -137,22 +136,27 @@ for epoch in range(epochs):
             states, actions, rewards, next_states, dones = zip(*batch)
 
             states = torch.stack(states).to(device)
-            actions = torch.LongTensor(actions).to(device)
+            actions = torch.FloatTensor(np.array(actions)).to(device)
             rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
             next_states = torch.stack(next_states).to(device)
             dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
-
             
-            current_q_values = q_network(states).gather(1, actions.unsqueeze(1))
-            next_q_values = target_network(next_states).max(1)[0].unsqueeze(1)
+            # Predict Q-values for the current states
+            current_q_values = q_network(states)
+            
+            # Predict Q-values for the next states
+            next_q_values = target_network(next_states)
+            
+            # Calculate target Q-values
             target_q_values = rewards + (1 - dones) * gamma * next_q_values
 
+            
             # Compute the loss between the current Q-values and target Q-values
             loss = nn.MSELoss()(current_q_values, target_q_values)
 
             optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(q_network.parameters(), max_norm=1.0)
+            # torch.nn.utils.(q_network.parameters(), max_norm=1.0)
             optimizer.step()
             # scheduler.step()
         

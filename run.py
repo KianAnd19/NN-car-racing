@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import cv2
 import sys
+import torch.nn as nn
 from network import cnn
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,7 +17,8 @@ input_channels = 1  # Grayscale input
 model = cnn().to(device)
 
 # Load the saved state dictionary
-model.load_state_dict(torch.load('model_best.pth', map_location=device))
+# model.load_state_dict(torch.load('model_best.pth', map_location=device))
+
 
 # if len(sys.argv) > 1:
 #     if sys.argv[1] == '1':
@@ -36,6 +38,7 @@ if len(sys.argv) > 1:
         model.load_state_dict(torch.load('runs/model3.pth', map_location=device))
     elif sys.argv[1] == "5":
         model.load_state_dict(torch.load('runs/model4.pth', map_location=device))
+
 model.eval()
 
 def preprocess_state(state):
@@ -58,7 +61,7 @@ def preprocess_state(state):
 def select_action_run(state):
     with torch.no_grad():
         action = model(state.unsqueeze(0)).squeeze()
-        return action.cpu().numpy()
+        return action.cpu().numpy().argmax()
 
 try:
     # Run the environment
@@ -68,7 +71,6 @@ try:
 
     for step in range(1000):  # Run for 1000 steps
         action = select_action_run(state)
-        action = np.argmax(action)
         print(f"Step {step}, Action: {action}")
         next_state, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
